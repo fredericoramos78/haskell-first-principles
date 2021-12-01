@@ -44,6 +44,8 @@ monoidRightIdentity a = (a <> mempty) == a
 main :: IO () 
 
 -- this didn't work for Num/Int/Integer
+-- Solution: that's b/c there's no default Semigroup for Int/Num/Integer. We have to go into 
+--    Sum/Product
 main = do
     quickCheck (monoidAssoc :: FirstMappend) 
     quickCheck (monoidLeftIdentity :: FstId) 
