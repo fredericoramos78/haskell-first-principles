@@ -1,6 +1,7 @@
 module Chapter22.WarmUp where
 
-import Data.Char
+import Data.Char ( toUpper )
+import Control.Applicative (liftA2)
 
 cap :: [Char] -> [Char] 
 cap = map toUpper
@@ -14,7 +15,7 @@ fmapped = fmap cap rev
 
 
 tupled :: [Char] -> ([Char], [Char])
-tupled = (,) <$> cap <*> rev 
+tupled = liftA2 (,) cap rev -- (,) <$> cap <*> rev 
 
 tupledM :: [Char] -> ([Char], [Char])
 tupledM = do 

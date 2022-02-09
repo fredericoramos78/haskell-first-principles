@@ -18,5 +18,6 @@ instance Applicative (Reader r) where
     pure a = Reader $ const a
     
     (<*>) :: Reader r (a -> b) -> Reader r a -> Reader r b
+    -- This is how the `r` gets duplicated! ===> (rab r (ra r))
     (Reader rab) <*> (Reader ra) = Reader $ \r -> rab r (ra r)
 
