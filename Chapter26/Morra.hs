@@ -9,23 +9,32 @@ import Data.Time.Clock
 import Data.Bool (bool)
 import Distribution.Simple.Utils
 
+import Control.Monad.Trans.State
+
 type PlayerName = String
 
+-- each time a player bets on a number
 data Bet = Bet 
     { name :: PlayerName
     , bet :: Int
     }
 
+-- Winner of a single round
 data Winner = Winner 
     { winner :: PlayerName
     , betsSum :: Int
     }
+
+-- the Game state; It represents how's playing (names) and how many times each of those players won
 data Game = Game 
     { oddsPlayer  :: PlayerName
     , evensPlayer :: PlayerName
     , oddsWins    :: Integer
     , evensWins    :: Integer    
     }
+
+instance Show Game where
+    show (Game op ep ow ew) = "\n++ " ++ op ++ " playing odds won " ++ show ow ++ ", " ++ ep ++ " playing evens won " ++ show ew ++ "\n"
 
 -- a game starts with 0 wins for each side
 mkGame :: PlayerName -> PlayerName -> Game
@@ -69,36 +78,49 @@ randomBet = do
     let nextNbr = head (rolls pureGen)
     pure $ rem nextNbr 10
 
-main2Players :: IO ()
-main2Players = do
-    oPlayer <- askPlayerName "odds"
-    ePlayer <- askPlayerName "evens"
-    let game = mkGame oPlayer ePlayer
-    printInit game
+-- This runs a single round
+singleRound :: Game -> IO Int -> IO Winner
+singleRound (Game oPlayer ePlayer _ _) betEvenF = do
     oBet <- Bet oPlayer <$> readPlayerBet oPlayer
-    eBet <- Bet ePlayer <$> readPlayerBet ePlayer
+    eBet <- Bet ePlayer <$> betEvenF
     let winner = winnerIs oBet eBet
     printResult oBet eBet winner
+    pure winner
 
-mainSinglePlayer :: IO ()
-mainSinglePlayer = do
+-- This loops until `Ctrl+C` is hit, updating the state (win counts) of the game
+gameplay :: IO Int -> StateT Game IO Winner
+gameplay betEvenF = StateT $ \g@Game {..} -> do
+    w <- singleRound g betEvenF
+    let game = Game {..}
+    let game' = game { oddsWins  = oddsWins  + bool 0 1 (winner w == oddsPlayer)
+                     , evensWins = evensWins + bool 0 1 (winner w == evensPlayer) 
+                     }
+    print game'
+    runStateT (gameplay' betEvenF) game'
+
+
+initGame :: Bool -> IO Game
+initGame isDual = do
     oPlayer <- askPlayerName "odds"
-    let ePlayer = "Computer"
+    ePlayer <- if isDual then askPlayerName "evens" else pure "Computer"
     let game = mkGame oPlayer ePlayer
     printInit game
-    oBet <- Bet oPlayer <$> readPlayerBet oPlayer
-    eBet <- Bet ePlayer <$> randomBet
-    let winner = winnerIs oBet eBet
-    printResult oBet eBet winner
+    pure game
 
-isPlayingDualPlayers :: IO Bool 
-isPlayingDualPlayers = do
+askIfPlayingAgainstAnotherPerson :: IO Bool 
+askIfPlayingAgainstAnotherPerson = do
     putStrLn "Are you playing against another player. If not, I'll set the Computer as your opponent (Y/n)?"
     answer <- getLine
     let normAnswer = lowercase answer
-    return $ isPrefixOf "y" normAnswer
+    pure $ isPrefixOf "y" normAnswer
 
 main :: IO ()
 main = do 
-    isDual <- isPlayingDualPlayers
-    bool mainSinglePlayer main2Players isDual
+    isDual <- askIfPlayingAgainstAnotherPerson
+    game@(Game _ ePlayer _ _) <- initGame isDual
+    let betEvenF :: IO Int 
+        betEvenF = if isDual then readPlayerBet ePlayer else randomBet
+    runStateT (gameplay betEvenF) game
+    putStrLn "Done!"
+
+    
