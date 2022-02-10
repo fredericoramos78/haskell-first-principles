@@ -17,20 +17,19 @@ instance (Functor m) => Functor (IdentityT m) where
     fmap f (IdentityT fa) = IdentityT (fmap f fa)
 
 instance (Applicative m) => Applicative (IdentityT m) where
-    pure = undefined 
-    (<*>) _ _ = undefined
+    pure a = IdentityT $ pure a
+    (<*>) (IdentityT ff) (IdentityT fa) = IdentityT $ ff <*> fa
 
 instance (Monad m) => Monad (IdentityT m) where
     return = pure
-    (>>=) _ _ = undefined
+    (>>=) (IdentityT ma) mf = IdentityT $ ma >>= (runIdentityT . mf) 
 
 
 instance (MonadIO m) => MonadIO (IdentityT m) where
     liftIO = IdentityT . liftIO
 
 instance (MonadIO m) => MonadIO (EitherT e m) where
-    -- this is failing compilation since I can't find which import to use for `EitherT`
-    liftIO = undefined -- lift . liftIO
+    liftIO ma = EitherT $ Right <$> liftIO ma
 
 -- 1. MaybeT
 instance (MonadIO m) => MonadIO (MaybeT m) where
